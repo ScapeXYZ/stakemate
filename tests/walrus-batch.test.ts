@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { approvedBatch, inspectWalrusBatchReceipts, prepareWalrusBatch, recallPublishedWalrusBatch, verifyFrozenWalrusBatch } from "../src/lib/server/walrus-batch";
+import { approvedBatch, assertSafeManifestPath, inspectWalrusBatchReceipts, prepareWalrusBatch, recallPublishedWalrusBatch, verifyFrozenWalrusBatch } from "../src/lib/server/walrus-batch";
 import { MemoryReceiptStore, WalrusMemoryService } from "../src/lib/server/walrus-memory";
 
 const records = Array.from({ length: 12 }, (_, index) => ({ id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`, occurredAt: `2030-01-${String((index % 9) + 1).padStart(2, "0")}T00:00:00.000Z`, challengeId: `challenge-${index}`, actorId: "operator", type: "challenge.created" as const, fixture: `Fixture ${index}`, market: "home_win", deadline: "2030-02-01T00:00:00.000Z", provenance: { source: "canonical_postgres_invitation", sourceRef: `invitation:${index}`, verifiedAt: "2030-01-01T00:00:00.000Z", commitmentHash: `0x${String(index).padStart(64, "a")}` } }));
@@ -12,6 +12,11 @@ test("deterministically freezes exactly ten unique schema-valid records from twe
 test("a changed candidate set rejects frozen manifest publication", () => {
   const manifest = prepareWalrusBatch(records);
   assert.throws(() => verifyFrozenWalrusBatch(manifest, records.map((record, index) => index === 0 ? { ...record, fixture: "Changed" } : record)), /WALRUS_BATCH_CONTENT_CHANGED/);
+});
+test("manifest files must stay outside the application repository", () => {
+  assert.throws(() => assertSafeManifestPath("relative-manifest.json"), /ABSOLUTE_REQUIRED/);
+  assert.throws(() => assertSafeManifestPath(`${process.cwd()}/manifest.json`), /OUTSIDE_REPOSITORY_REQUIRED/);
+  assert.equal(assertSafeManifestPath("/tmp/stakemate-walrus/manifest.json"), "/tmp/stakemate-walrus/manifest.json");
 });
 test("publication requires an approval ID, matching approved digest, explicit confirmation, and write gate", () => {
   const manifest = prepareWalrusBatch(records); const saved = { approval: process.env.WALRUS_MEMORY_WRITE_APPROVAL_ID, digest: process.env.WALRUS_MEMORY_APPROVED_BATCH_DIGEST, writes: process.env.WALRUS_MEMORY_WRITES_ENABLED, freeze: process.env.STAKEMATE_MAINTENANCE_WRITE_FREEZE };
