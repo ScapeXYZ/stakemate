@@ -1,0 +1,20 @@
+# Opt-in, disposable PostgreSQL 17 database for integration tests only.
+# It is isolated from Supabase and bound to localhost.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: stakemate_integration17
+      POSTGRES_USER: stakemate_test
+      POSTGRES_PASSWORD: stakemate_test_only
+    ports:
+      - "127.0.0.1:55435:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    volumes:
+      - ./db/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stakemate_test -d stakemate_integration17"]
+      interval: 2s
+      timeout: 2s
+      retries: 15

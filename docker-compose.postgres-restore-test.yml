@@ -1,0 +1,17 @@
+# Disposable restore rehearsal only. No production URL, credentials, or volume is used.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: stakemate_restore
+      POSTGRES_USER: stakemate_restore_test
+      POSTGRES_PASSWORD: stakemate_restore_test_only
+    ports:
+      - "127.0.0.1:55433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stakemate_restore_test -d stakemate_restore"]
+      interval: 2s
+      timeout: 2s
+      retries: 15

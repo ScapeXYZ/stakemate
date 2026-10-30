@@ -1,0 +1,23 @@
+node_modules/
+.next/
+out/
+coverage/
+*.log
+.env.local
+.env*.local
+
+# Deployment safety
+.env
+.env.*
+!.env.example
+!*.env.example
+node_modules/
+.next/
+.vercel/
+*.tsbuildinfo
+*.log
+
+# Sui Move generated files
+contracts/**/build/
+contracts/**/.coverage_map.mvcov
+contracts/**/coverage/

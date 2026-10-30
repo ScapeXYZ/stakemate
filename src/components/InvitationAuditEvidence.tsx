@@ -1,0 +1,13 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+type Evidence = { invitation: { status: string; coreHash: string; acceptedChallengeHash: string | null; core: { fixtureId: string; competitionName: string; homeTeam: string; awayTeam: string; kickoffUtc: string; creatorSelection: string; opponentSelection: string; unselectedOutcome: string; stakeMist: string }; invitationExpiresAtUtc: string; fundingDeadlineAtUtc: string | null; outcomeDeadlineUtc: string }; participants: { creatorUsername: string; recipientUsername: string }; readOnly: true; fundingApproved: false };
+
+export function InvitationAuditEvidence({ id }: { id: string }) {
+  const [evidence, setEvidence] = useState<Evidence | null>(null); const [state, setState] = useState("Loading party-scoped read-only evidence…");
+  useEffect(() => { let active = true; void fetch(`/api/invitations/${id}`, { credentials: "same-origin", cache: "no-store" }).then(async (response) => { const body = await response.json(); if (!response.ok) throw new Error(body.error ?? "Invitation evidence is unavailable."); return body as Evidence; }).then((body) => { if (active) { setEvidence(body); setState("Read-only canonical commitment evidence."); } }).catch((error: unknown) => { if (active) setState(error instanceof Error ? error.message : "Invitation evidence is unavailable."); }); return () => { active = false; }; }, [id]);
+  if (!evidence) return <p className="hero-text" aria-live="polite">{state}</p>;
+  const item = evidence.invitation;
+  return <><p className="hero-text" aria-live="polite">{state}</p><dl><dt>Status</dt><dd>{item.status}</dd><dt>Challenger / recipient</dt><dd>@{evidence.participants.creatorUsername} / @{evidence.participants.recipientUsername}</dd><dt>Fixture</dt><dd>{item.core.competitionName} · {item.core.homeTeam} vs {item.core.awayTeam} · {item.core.kickoffUtc}</dd><dt>Selections / stake</dt><dd>{item.core.creatorSelection} / {item.core.opponentSelection}; unselected {item.core.unselectedOutcome}; {item.core.stakeMist} MIST each</dd><dt>Draw rule</dt><dd>If the match finishes level, each participant receives 100% of their original escrow principal. Network gas is separate.</dd><dt>Core commitment</dt><dd><code>{item.coreHash}</code></dd><dt>Accepted challenge</dt><dd><code>{item.acceptedChallengeHash ?? "Not accepted"}</code></dd><dt>Deadlines</dt><dd>Invitation {item.invitationExpiresAtUtc}; funding {item.fundingDeadlineAtUtc ?? "Not accepted"}; outcome {item.outcomeDeadlineUtc}</dd></dl><p className="disclaimer">Read-only evidence only. Funding, signing, settlement, and Walrus writes are disabled.</p></>;
+}
