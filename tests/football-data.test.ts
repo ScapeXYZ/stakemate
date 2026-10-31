@@ -11,7 +11,7 @@ test("football adapter sends only server token header, documented filters, and m
   let request = ""; let headers: Headers | undefined;
   const client = new FootballDataClient("token-not-to-be-logged", async (url, init) => { request = url; headers = new Headers(init?.headers); return response(payload()); }, () => current);
   const result = await client.upcoming("PL");
-  assert.match(request, /\/v4\/competitions\/PL\/matches\?dateFrom=2030-01-01&dateTo=2030-01-08/); assert.equal(headers?.get("X-Auth-Token"), "token-not-to-be-logged");
+  assert.match(request, /\/v4\/competitions\/PL\/matches\?dateFrom=2030-01-01&dateTo=2030-01-09/); assert.equal(headers?.get("X-Auth-Token"), "token-not-to-be-logged");
   assert.equal(result.fixtures[0].eligibility, "eligible"); assert.equal(result.fixtures[0].kickoffUtc, "2030-01-02T15:00:00.000Z");
 });
 

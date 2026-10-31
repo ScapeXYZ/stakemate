@@ -64,7 +64,7 @@ export class FootballDataClient {
     assertCompetition(competition);
     if (!this.token?.trim()) throw new ProviderError("Football fixture provider is not configured.", "NOT_CONFIGURED");
     if (!Number.isInteger(horizonDays) || horizonDays < 1 || horizonDays > 7) throw new ProviderError("Fixture horizon must be between one and seven days.", "INVALID_RESPONSE");
-    const now = this.now(); const from = utcDate(now); const to = utcDate(now + horizonDays * 24 * 60 * 60_000); const key = `${competition}:${from}:${to}`;
+    const now = this.now(); const from = utcDate(now); const to = utcDate(now + (horizonDays + 1) * 24 * 60 * 60_000); const key = `${competition}:${from}:${to}`;
     const cached = this.cache.get(key); if (cached && cached.expiresAt > now) return cached.value;
     const inFlight = this.inFlight.get(`upcoming:${key}`) as Promise<FootballFixturesResponse> | undefined; if (inFlight) return inFlight;
     const request = this.fetchUpcoming(competition, horizonDays, key, now); this.inFlight.set(`upcoming:${key}`, request);
@@ -72,7 +72,9 @@ export class FootballDataClient {
   }
   private async fetchUpcoming(competition: FootballCompetition, horizonDays: number, key: string, now: number): Promise<FootballFixturesResponse> {
     this.assertPaced(now, "Football provider request is rate limited locally; use cached data or retry shortly.");
-    const from = utcDate(now); const to = utcDate(now + horizonDays * 24 * 60 * 60_000);
+    // football-data.org treats dateTo as exclusive. Include the whole requested
+    // horizon instead of silently omitting fixtures on its final UTC date.
+    const from = utcDate(now); const to = utcDate(now + (horizonDays + 1) * 24 * 60 * 60_000);
     const url = new URL(`${endpoint}/competitions/${competition}/matches`); url.searchParams.set("dateFrom", from); url.searchParams.set("dateTo", to);
     let response: Response;
     try { response = await this.fetcher(url.toString(), { headers: { "X-Auth-Token": this.token!, Accept: "application/json" }, signal: AbortSignal.timeout(timeoutMs), cache: "no-store" }); }

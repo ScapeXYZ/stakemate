@@ -3,6 +3,7 @@ import test from "node:test";
 import { MemoryInvitationStore } from "../src/lib/server/invitations";
 import { createPublicReadOnlyMcpHandler, PublicMcpRateLimiter, remoteMcpPublicReadOnlyEnabled } from "../src/lib/server/remote-mcp";
 import type { FootballFixture } from "../src/lib/server/football-data";
+import { ProviderError } from "../src/lib/server/errors";
 
 const endpoint = "https://stakemate.isholadigital.tech/api/mcp";
 const fixture: FootballFixture = { provider: "football-data.org/v4", competitionCode: "PL", competitionName: "Premier League", fixtureId: "42", homeTeam: { id: "10", name: "Arsenal FC" }, awayTeam: { id: "20", name: "Chelsea FC" }, kickoffUtc: "2030-01-02T12:00:00.000Z", providerStatus: "TIMED", eligibility: "eligible", retrievedAtUtc: "2030-01-01T00:00:00.000Z" };
@@ -72,6 +73,35 @@ test("public MCP rejects private tools and strips caller credentials before prot
   const secretShapedPayload = "client-secret-must-not-echo";
   const secretError = await handler.fetch(request(secretShapedPayload));
   assert.equal((await secretError.text()).includes(secretShapedPayload), false, "parse failures never reflect request content");
+});
+
+test("public fixture lookup returns a safe provider category, status, or genuine empty window", async () => {
+  const unavailable = createPublicReadOnlyMcpHandler({
+    store: () => new MemoryInvitationStore(),
+    football: () => ({
+      upcoming: async () => { throw new ProviderError("provider rejected credential", "AUTH", 403); },
+      timedFixture: async () => fixture,
+    }),
+  }, { limiter: new PublicMcpRateLimiter() });
+  const unavailableResponse = await unavailable.fetch(request({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "stakemate_get_verified_fixtures", arguments: { competition: "PL" } } }));
+  const unavailableBody = await unavailableResponse.json() as { result?: { content?: Array<{ text?: string }> } };
+  assert.deepEqual(JSON.parse(unavailableBody.result?.content?.[0]?.text ?? "{}"), {
+    code: "FIXTURE_LOOKUP_UNAVAILABLE",
+    message: "Verified fixture data is unavailable; do not infer a fixture.",
+    providerErrorCategory: "AUTH",
+    providerHttpStatus: 403,
+  });
+
+  const empty = createPublicReadOnlyMcpHandler({
+    store: () => new MemoryInvitationStore(),
+    football: () => ({
+      upcoming: async () => ({ provider: "football-data.org/v4" as const, competition: "PL" as const, retrievedAtUtc: fixture.retrievedAtUtc, attribution: "test", fixtures: [] }),
+      timedFixture: async () => fixture,
+    }),
+  }, { limiter: new PublicMcpRateLimiter() });
+  const emptyResponse = await empty.fetch(request({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "stakemate_get_verified_fixtures", arguments: { competition: "PL" } } }));
+  const emptyBody = await emptyResponse.json() as { result?: { content?: Array<{ text?: string }> } };
+  assert.deepEqual(JSON.parse(emptyBody.result?.content?.[0]?.text ?? "{}"), { provider: "football-data.org/v4", fixtures: [], fixtureWindow: "empty" });
 });
 
 test("public MCP applies origin, method, media-type, payload-size, rate, and timeout guards", async () => {

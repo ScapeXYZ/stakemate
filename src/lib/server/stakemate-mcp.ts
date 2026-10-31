@@ -6,6 +6,7 @@ import { getFootballDataClient, footballCompetitions, type FootballCompetition, 
 import { getInvitationStore, type InvitationStore } from "@/lib/server/invitations";
 import { getWalrusMemoryService } from "@/lib/server/walrus-memory";
 import type { McpAuthContext } from "@/lib/server/mcp-auth-context";
+import { ProviderError } from "@/lib/server/errors";
 
 type PrivateScope = "duels:prepare" | "credibility:read" | "invitations:read";
 export type McpDependencies = {
@@ -19,7 +20,7 @@ const competition = z.enum(footballCompetitions);
 const username = z.string().trim().min(3).max(25).regex(/^@?[a-zA-Z0-9_]+$/);
 const selection = z.enum(oneXTwoSelections);
 const text = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value) }], structuredContent: value as Record<string, unknown> });
-const error = (code: string, message: string) => ({ isError: true as const, content: [{ type: "text" as const, text: JSON.stringify({ code, message }) }] });
+const error = (code: string, message: string, details: Record<string, unknown> = {}) => ({ isError: true as const, content: [{ type: "text" as const, text: JSON.stringify({ code, message, ...details }) }] });
 
 async function privateContext(deps: McpDependencies, scope: PrivateScope) {
   const context = await deps.authContext();
@@ -129,8 +130,16 @@ function registerStakeMatePublicTools(server: McpServer, deps: Pick<McpDependenc
     try {
       const codes = requested ? [requested] : footballCompetitions;
       const results = await Promise.all(codes.map(async (code) => deps.football().upcoming(code, horizonDays)));
-      return text({ provider: "football-data.org/v4", fixtures: results.flatMap((result) => result.fixtures.map(publicFixture)) });
-    } catch { return error("FIXTURE_LOOKUP_UNAVAILABLE", "Verified fixture data is unavailable; do not infer a fixture."); }
+      const fixtures = results.flatMap((result) => result.fixtures.map(publicFixture));
+      return text({ provider: "football-data.org/v4", fixtures, fixtureWindow: fixtures.length === 0 ? "empty" : "results" });
+    } catch (cause) {
+      if (cause instanceof ProviderError) return error("FIXTURE_LOOKUP_UNAVAILABLE", "Verified fixture data is unavailable; do not infer a fixture.", {
+        providerErrorCategory: cause.code,
+        ...(cause.status === undefined ? {} : { providerHttpStatus: cause.status }),
+        ...(cause.retryAfterMs === undefined ? {} : { retryAfterSeconds: Math.max(1, Math.ceil(cause.retryAfterMs / 1_000)) }),
+      });
+      return error("FIXTURE_LOOKUP_UNAVAILABLE", "Verified fixture data is unavailable; do not infer a fixture.", { providerErrorCategory: "UNAVAILABLE" });
+    }
   });
 
 }
