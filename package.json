@@ -13,7 +13,11 @@
     "mcp:broker": "tsx scripts/stakemate-mcp-broker.ts",
     "workos:probe": "tsx scripts/workos-connect-sandbox-probe.ts",
     "walrus:batch": "tsx scripts/stakemate-walrus-batch.ts",
-    "migrations:dry-run": "node scripts/migration-runner.mjs"
+    "migrations:dry-run": "node scripts/migration-runner.mjs",
+    "walrus:evidence:preflight": "node scripts/audit-walrus-evidence-prereqs.mjs",
+    "walrus:evidence:migrate": "node scripts/migrate-walrus-evidence.mjs",
+    "walrus:evidence:rls-migrate": "node scripts/migrate-walrus-evidence-rls.mjs",
+    "walrus:evidence:import": "node scripts/import-walrus-evidence.mjs"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.6",

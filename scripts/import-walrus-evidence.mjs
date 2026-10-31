@@ -6,15 +6,18 @@ import { resolve } from "node:path";
 import postgres from "postgres";
 
 const root = resolve(import.meta.dirname, "..");
+const expectedBatchDigest = "590fb9522e99b59f986fb2f26a39e894bb3870bfe51f4ba0054fc4393da9c02f";
 const evidenceDir = process.env.STAKEMATE_WALRUS_EVIDENCE_DIR;
-const databaseUrl = process.env.STAKEMATE_MIGRATION_DATABASE_URL;
+const databaseUrl = process.env.STAKEMATE_WALRUS_EVIDENCE_IMPORT_DATABASE_URL;
 const execute = process.argv.includes("--execute");
-if (!evidenceDir || !databaseUrl) throw new Error("WALRUS_EVIDENCE_IMPORT_CONFIGURATION_REQUIRED");
+if (!evidenceDir) throw new Error("WALRUS_EVIDENCE_DIR_REQUIRED");
+if (!databaseUrl) throw new Error("WALRUS_EVIDENCE_IMPORT_DATABASE_URL_REQUIRED");
 const manifest = JSON.parse(await readFile(resolve(evidenceDir, "mainnet-batch.json"), "utf8"));
 const journal = JSON.parse(await readFile(resolve(evidenceDir, "receipts.json"), "utf8"));
 const canonical = (value) => value === null || ["boolean", "number", "string"].includes(typeof value) ? JSON.stringify(value) : Array.isArray(value) ? `[${value.map(canonical).join(",")}]` : `{${Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(",")}}`;
 const digest = (value) => createHash("sha256").update(value, "utf8").digest("hex");
 if (manifest.version !== 1 || manifest.network !== "mainnet" || manifest.recordCount !== 10 || !Array.isArray(manifest.entries) || manifest.entries.length !== 10 || manifest.batchDigest !== digest(canonical({ version: 1, network: "mainnet", entries: manifest.entries }))) throw new Error("WALRUS_EVIDENCE_MANIFEST_INVALID");
+if (manifest.batchDigest !== expectedBatchDigest) throw new Error("WALRUS_EVIDENCE_UNEXPECTED_BATCH_DIGEST");
 const rows = manifest.entries.map((entry) => {
   const receipt = journal[entry.digest];
   if (!receipt || receipt.status !== "completed" || receipt.recordId !== entry.recordId || receipt.digest !== entry.digest || !receipt.blobId || !receipt.completedAt || !receipt.preparedAt) throw new Error("WALRUS_EVIDENCE_RECEIPT_INVALID");

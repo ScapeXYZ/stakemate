@@ -40,7 +40,10 @@ export class PostgresWalrusEvidenceStore implements ReceiptStore {
 }
 
 export function getPostgresWalrusEvidenceStore() {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl?.trim()) throw new Error("DATABASE_NOT_CONFIGURED");
+  // Evidence recall intentionally has its own least-privilege connection. It
+  // must never inherit the broader application connection used for sessions
+  // and invitation administration.
+  const databaseUrl = process.env.STAKEMATE_WALRUS_EVIDENCE_DATABASE_URL;
+  if (!databaseUrl?.trim()) throw new Error("WALRUS_EVIDENCE_DATABASE_NOT_CONFIGURED");
   return new PostgresWalrusEvidenceStore(databaseUrl);
 }

@@ -18,7 +18,7 @@ Status date: 2026-10-31. This is an evidence-based status report, not an activat
 Set these only in the deployment secret manager; never commit or disclose their values:
 
 - `TATUM_API_KEY`, `TATUM_SUI_NETWORK=testnet`, optional `TATUM_SUI_GRPC_ENDPOINT`
-- `DATABASE_URL` for server-only PostgreSQL reads; `STAKEMATE_MIGRATION_DATABASE_URL` only in the protected migration/import environment
+- `DATABASE_URL` for the existing server application; `STAKEMATE_WALRUS_EVIDENCE_DATABASE_URL` for the dedicated read-only evidence role; `STAKEMATE_WALRUS_EVIDENCE_IMPORT_DATABASE_URL` for the dedicated insert-only importer; and `STAKEMATE_MIGRATION_DATABASE_URL` only for protected schema operations
 - `WALRUS_MEMORY_NETWORK=mainnet`, `WALRUS_MEMORY_ACCOUNT_ID`, and `WALRUS_MEMORY_DELEGATE_KEY`. Do not configure a production filesystem manifest or receipt path for insights.
 - `WALRUS_MEMORY_WRITES_ENABLED=false`
 - `STAKEMATE_MAINTENANCE_WRITE_FREEZE=true`
