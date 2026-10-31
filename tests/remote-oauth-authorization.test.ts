@@ -23,7 +23,7 @@ async function setup(lookup: RemoteConsentLookup = grantLookup([{ subject: "prov
 const requestFor = (token: string) => new Request(audience, { headers: { authorization: `Bearer ${token}` } });
 
 test("remote OAuth rejects forged, wrong issuer/audience, expired, missing-consent, and revoked tokens", async () => {
-  const { auth, token } = await setup(); assert.ok(await auth.verify(requestFor(await token())));
+  const { auth, token } = await setup(); assert.equal(await auth.verify(new Request(audience)), null, "a missing bearer token cannot create a wallet principal"); assert.ok(await auth.verify(requestFor(await token())));
   assert.equal(await auth.verify(requestFor("forged")), null);
   assert.equal(await auth.verify(requestFor(await token({ issuerOverride: "https://wrong.example" }))), null);
   assert.equal(await auth.verify(requestFor(await token({ audienceOverride: "https://other.example/mcp" }))), null);

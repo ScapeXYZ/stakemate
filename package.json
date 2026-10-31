@@ -11,6 +11,7 @@
     "test:postgres": "tsx --test tests/postgres-invitations.integration.test.ts",
     "mcp:stdio": "tsx scripts/stakemate-mcp.ts",
     "mcp:broker": "tsx scripts/stakemate-mcp-broker.ts",
+    "workos:probe": "tsx scripts/workos-connect-sandbox-probe.ts",
     "walrus:batch": "tsx scripts/stakemate-walrus-batch.ts",
     "migrations:dry-run": "node scripts/migration-runner.mjs"
   },

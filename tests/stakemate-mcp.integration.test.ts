@@ -11,12 +11,12 @@ const alice = `0x${"1".repeat(64)}`;
 const bob = `0x${"2".repeat(64)}`;
 const fixture: FootballFixture = { provider: "football-data.org/v4", competitionCode: "PL", competitionName: "Premier League", fixtureId: "42", homeTeam: { id: "10", name: "Arsenal FC" }, awayTeam: { id: "20", name: "Chelsea FC" }, kickoffUtc: "2030-01-02T12:00:00.000Z", providerStatus: "TIMED", eligibility: "eligible", retrievedAtUtc: "2030-01-01T00:00:00.000Z" };
 
-async function connected(authenticated = true) {
+async function connected(authenticated = true, authenticatedWallet = alice) {
   const store = new MemoryInvitationStore();
   await store.claimUsername(alice, "alice", new Date("2030-01-01T00:00:00.000Z"));
   await store.claimUsername(bob, "bob", new Date("2030-01-01T00:00:00.000Z"));
   const server = createStakeMateMcpServer({
-    authContext: async () => authenticated ? { authorizationId: "33333333-3333-4333-8333-333333333333", walletAddress: alice, scopes: ["duels:prepare", "credibility:read", "invitations:read"], issuedAt: "2030-01-01T00:00:00.000Z", expiresAt: "2030-01-02T00:00:00.000Z" } : null,
+    authContext: async () => authenticated ? { authorizationId: "33333333-3333-4333-8333-333333333333", walletAddress: authenticatedWallet, scopes: ["duels:prepare", "credibility:read", "invitations:read"], issuedAt: "2030-01-01T00:00:00.000Z", expiresAt: "2030-01-02T00:00:00.000Z" } : null,
     store: () => store,
     football: () => ({ upcoming: async () => ({ provider: "football-data.org/v4" as const, competition: "PL" as const, retrievedAtUtc: fixture.retrievedAtUtc, attribution: "test", fixtures: [fixture] }), timedFixture: async () => fixture }),
     recallCredibility: async () => ({ records: [{ id: "71c6a3d1-9041-4947-b4cc-3779453f1daa", occurredAt: "2030-01-01T00:00:00.000Z", challengeId: "credibility", actorId: "agent", type: "player.credibility_score", playerId: alice, score: 80, sampleSize: 7, methodology: "verified outcomes" }], provenance: { network: "mainnet", matchedRecordIds: ["71c6a3d1-9041-4947-b4cc-3779453f1daa"] } }),
@@ -64,5 +64,15 @@ test("MCP resolves public handles and safely prepares but never creates a duel",
     const value = decoded(prepared); assert.equal(value.previewOnly, true); assert.equal(value.invitationCreated, false); assert.equal(value.challenger, "@alice"); assert.equal(value.opponent, "@bob");
     const credibility = await client.callTool({ name: "stakemate_read_my_credibility", arguments: {} });
     assert.equal(decoded(credibility).username, "alice");
+  } finally { await client.close(); await server.close(); }
+});
+
+test("private credibility and invitation reads cannot be switched to another wallet by tool input", async () => {
+  const { client, server } = await connected(true, bob);
+  try {
+    const credibility = await client.callTool({ name: "stakemate_read_my_credibility", arguments: { walletAddress: alice } });
+    assert.equal(decoded(credibility).username, "bob");
+    const invitations = await client.callTool({ name: "stakemate_get_my_invitations", arguments: { walletAddress: alice } });
+    assert.equal(decoded(invitations).username, "bob");
   } finally { await client.close(); await server.close(); }
 });

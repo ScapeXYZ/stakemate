@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MemoryInvitationStore, type InvitationStore } from "../src/lib/server/invitations";
+import { MemoryInvitationStore, PersistentStoreUnavailableError, type InvitationStore } from "../src/lib/server/invitations";
 import { createPublicReadOnlyMcpHandler, PublicMcpRateLimiter, remoteMcpPublicReadOnlyEnabled } from "../src/lib/server/remote-mcp";
 import type { FootballFixture } from "../src/lib/server/football-data";
 import { ProviderError } from "../src/lib/server/errors";
@@ -78,6 +78,14 @@ test("public username lookup returns only a public handle and fails closed", asy
   const failed = await unavailable.fetch(request({ jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "stakemate_resolve_username", arguments: { username: "alice" } } }));
   const failedBody = await failed.json() as { result?: { content?: Array<{ text?: string }> } };
   assert.deepEqual(JSON.parse(failedBody.result?.content?.[0]?.text ?? "{}"), { code: "PROFILE_LOOKUP_UNAVAILABLE", message: "Public username lookup is unavailable." });
+
+  const unconfigured = createPublicReadOnlyMcpHandler({
+    store: () => { throw new PersistentStoreUnavailableError(); },
+    football: () => ({ upcoming: async () => ({ provider: "football-data.org/v4" as const, competition: "PL" as const, retrievedAtUtc: fixture.retrievedAtUtc, attribution: "test", fixtures: [fixture] }), timedFixture: async () => fixture }),
+  }, { limiter: new PublicMcpRateLimiter() });
+  const unconfiguredResponse = await unconfigured.fetch(request({ jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "stakemate_resolve_username", arguments: { username: "unknown_public_handle" } } }));
+  const unconfiguredBody = await unconfiguredResponse.json() as { result?: { content?: Array<{ text?: string }> } };
+  assert.deepEqual(JSON.parse(unconfiguredBody.result?.content?.[0]?.text ?? "{}"), { code: "PROFILE_LOOKUP_UNAVAILABLE", message: "Public username lookup is unavailable." }, "missing database configuration remains an infrastructure failure and is never reported as a missing username");
 });
 
 test("public MCP rejects private tools and strips caller credentials before protocol handling", async () => {
