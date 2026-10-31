@@ -10,7 +10,7 @@ async function main() {
   // WorkOS advertises only standard OIDC scopes for CIMD/DCR clients. A
   // dashboard-registered OAuth application can still receive its assigned
   // permission scopes, so this public metadata signal is diagnostic only.
-  if (!result.ok || !result.cimdAdvertised || result.dcrAdvertised) process.exitCode = 1;
+  if (!result.ok || result.dcrAdvertised) process.exitCode = 1;
 }
 
 void main().catch(() => {
