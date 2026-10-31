@@ -86,3 +86,24 @@ One bounded read-only recall verification was attempted with a specific package-
 ## Recovery and stop conditions
 
 If a journal contains `accepted` without `completed`, stop counting it and use the job ID with the official SDK/relayer support flow to verify its final state. If account readiness fails, fees are uncertain, the durable store is unavailable, or any record cannot be independently verified, keep writes disabled and report the blocker. The receipt file is restart-safe for one process; a multi-instance deployment requires a transactional shared `ReceiptStore` before writes.
+
+## Walrus Mainnet publication verification — 2026-10-31
+
+The operator recovered the original 10-record schema-v2 batch manifest
+with digest:
+590fb9522e99b59f986fb2f26a39e894bb3870bfe51f4ba0054fc4393da9c02f
+
+Verification results:
+- 10/10 completed MemWal receipts with distinct blob IDs.
+- 10/10 blobs returned HTTP 200 from the Walrus Mainnet aggregator.
+- 10 validated records returned through authenticated MemWal recall.
+- 10/10 recalled records matched the manifest using canonical SHA-256 digests.
+
+The original manifest, receipt journal, and verification output are retained
+outside Git at ~/stakemate-evidence/walrus-mainnet/.
+
+Verification script: scripts/verify-walrus-evidence.ts
+
+These results establish successful publication, retrieval, and canonical
+recall verification at the time tested. They do not establish indefinite
+storage retention or authorize additional writes.
