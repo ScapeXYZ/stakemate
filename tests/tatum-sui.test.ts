@@ -1,7 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { GrpcTypes } from "@mysten/sui/grpc";
 import { ProviderError } from "../src/lib/server/errors";
 import { STAKEMATE_TESTNET_PACKAGE, STAKEMATE_TESTNET_PUBLISH_TRANSACTION, TatumSuiClient } from "../src/lib/server/tatum-sui";
+
+test("public Sui gRPC registry exposes the statically bundled read-message codecs", () => {
+  for (const name of ["GetServiceInfoRequest", "GetServiceInfoResponse", "GetObjectRequest", "GetObjectResponse", "GetTransactionRequest", "GetTransactionResponse", "GetBalanceRequest", "GetBalanceResponse"] as const) {
+    const codec = GrpcTypes[name];
+    assert.equal(typeof codec.toBinary, "function");
+    assert.equal(typeof codec.fromBinary, "function");
+  }
+});
 
 test("Mainnet health uses the native read-only gRPC service", async () => {
   const client = new TatumSuiClient({ apiKey: "secret", network: "mainnet", fetchImpl: async () => { throw new Error("JSON-RPC must not be used"); } });
@@ -38,6 +47,7 @@ test("Testnet deployment probe uses native gRPC request shapes and validates the
   assert.deepEqual(await client.readStakeMateTestnetDeployment(), {
     network: "testnet", chainIdentifier: "test-chain", packageId: STAKEMATE_TESTNET_PACKAGE, packageType: "package", module: "challenge_escrow", publishTransaction: STAKEMATE_TESTNET_PUBLISH_TRANSACTION, transactionStatus: "success",
   });
+  assert.deepEqual(calls.map((call) => call.method), ["GetServiceInfo", "GetObject", "GetTransaction"], "deployment attestation serializes gateway reads");
   assert.deepEqual(calls.find((call) => call.method === "GetObject")?.request, { objectId: STAKEMATE_TESTNET_PACKAGE, readMask: { paths: ["object_id", "object_type", "previous_transaction", "package.storage_id", "package.original_id", "package.modules.name"] } });
   assert.deepEqual(calls.find((call) => call.method === "GetTransaction")?.request, { digest: STAKEMATE_TESTNET_PUBLISH_TRANSACTION, readMask: { paths: ["digest", "effects.status"] } });
 });

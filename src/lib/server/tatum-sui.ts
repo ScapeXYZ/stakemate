@@ -1,8 +1,6 @@
 import { ProviderError } from "./errors";
 import * as grpc from "@grpc/grpc-js";
-import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { GrpcTypes } from "@mysten/sui/grpc";
 
 export type TatumSuiNetwork = "mainnet" | "testnet" | "devnet";
 
@@ -16,25 +14,23 @@ const grpcEndpoints: Record<TatumSuiNetwork, string> = {
   testnet: "sui-testnet-grpc.gateway.tatum.io:443",
   devnet: "sui-devnet-grpc.gateway.tatum.io:443",
 };
-const nativeRequire = createRequire(import.meta.url);
+type GrpcMessage = { toBinary(value: unknown): Uint8Array; fromBinary(value: Uint8Array): unknown };
 
-type LedgerMessages = Record<string, { toBinary(value: unknown): Uint8Array; fromBinary(value: Uint8Array): unknown }>;
-let ledgerMessages: Promise<LedgerMessages> | undefined;
-function getLedgerMessages() {
-  ledgerMessages ??= (async () => {
-    const entry = nativeRequire.resolve("@mysten/sui/grpc");
-    return await import(pathToFileURL(join(dirname(entry), "proto/sui/rpc/v2/ledger_service.mjs")).href) as LedgerMessages;
-  })();
-  return ledgerMessages;
-}
-let stateMessages: Promise<LedgerMessages> | undefined;
-function getStateMessages() {
-  stateMessages ??= (async () => {
-    const entry = nativeRequire.resolve("@mysten/sui/grpc");
-    return await import(pathToFileURL(join(dirname(entry), "proto/sui/rpc/v2/state_service.mjs")).href) as LedgerMessages;
-  })();
-  return stateMessages;
-}
+// Use the package's public registry instead of resolving an internal protobuf
+// file at runtime. The static package import lets Turbopack include these
+// generated definitions in the Vercel function bundle.
+const ledgerMessages: Record<"GetServiceInfoRequest" | "GetServiceInfoResponse" | "GetObjectRequest" | "GetObjectResponse" | "GetTransactionRequest" | "GetTransactionResponse", GrpcMessage> = {
+  GetServiceInfoRequest: GrpcTypes.GetServiceInfoRequest,
+  GetServiceInfoResponse: GrpcTypes.GetServiceInfoResponse,
+  GetObjectRequest: GrpcTypes.GetObjectRequest,
+  GetObjectResponse: GrpcTypes.GetObjectResponse,
+  GetTransactionRequest: GrpcTypes.GetTransactionRequest,
+  GetTransactionResponse: GrpcTypes.GetTransactionResponse,
+};
+const stateMessages: Record<"GetBalanceRequest" | "GetBalanceResponse", GrpcMessage> = {
+  GetBalanceRequest: GrpcTypes.GetBalanceRequest,
+  GetBalanceResponse: GrpcTypes.GetBalanceResponse,
+};
 
 export type TatumSuiClientOptions = {
   apiKey?: string;
@@ -137,7 +133,14 @@ export class TatumSuiClient {
   /** Read-only deployment probe; no transaction execution or simulation is involved. */
   async readStakeMateTestnetDeployment(): Promise<StakeMateDeploymentVerification> {
     if (this.network !== "testnet") throw new ProviderError("StakeMate deployment probe is limited to Tatum Sui Testnet.", "INVALID_RESPONSE");
-    const [health, packageObject, publishTransaction] = await Promise.all([this.health(), this.getObject(STAKEMATE_TESTNET_PACKAGE), this.getTransactionBlock(STAKEMATE_TESTNET_PUBLISH_TRANSACTION)]);
+    // Tatum's gateway accepts each of these unary reads, but opening all three
+    // TLS gRPC streams at once is not reliable in every serverless/runtime
+    // network. Keep this deployment attestation deliberately bounded and
+    // sequential: it is an infrequent, read-only verification and avoids
+    // turning a valid package or transaction into a transient 503.
+    const health = await this.health();
+    const packageObject = await this.getObject(STAKEMATE_TESTNET_PACKAGE);
+    const publishTransaction = await this.getTransactionBlock(STAKEMATE_TESTNET_PUBLISH_TRANSACTION);
     const packageResponse = packageObject as TatumSuiObjectResponse;
     const transactionResponse = publishTransaction as TatumSuiTransactionResponse;
     const moduleNames = packageResponse.object?.package?.modules?.map((module) => module.name) ?? [];
@@ -152,7 +155,7 @@ export class TatumSuiClient {
   private async nativeCall(method: "GetServiceInfo" | "GetObject" | "GetTransaction" | "GetBalance", request: unknown): Promise<unknown> {
     if (!this.apiKey) throw new ProviderError("Tatum is not configured.", "NOT_CONFIGURED");
     const stateMethod = method === "GetBalance";
-    const messages = await (stateMethod ? getStateMessages() : getLedgerMessages()); const requestType = messages[`${method}Request`]; const responseType = messages[`${method}Response`];
+    const messages: Record<string, GrpcMessage> = stateMethod ? stateMessages : ledgerMessages; const requestType = messages[`${method}Request`]; const responseType = messages[`${method}Response`];
     if (!requestType || !responseType) throw new ProviderError("Official Sui gRPC definitions are unavailable.", "INVALID_RESPONSE");
     const client = new grpc.Client(this.grpcEndpoint, grpc.credentials.createSsl()); const metadata = new grpc.Metadata(); metadata.set("x-api-key", this.apiKey);
     const service = stateMethod ? "StateService" : "LedgerService";

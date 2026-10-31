@@ -108,13 +108,48 @@ These results establish successful publication, retrieval, and canonical
 recall verification at the time tested. They do not establish indefinite
 storage retention or authorize additional writes.
 
-## Read-only deployment check — 2026-10-31
+## Production read-only verification — 2026-10-31
 
-A bounded unauthenticated check of the current Vercel production deployment
-returned `302` for the home page, health routes, and `/api/mcp`. The redirect
-is to Vercel SSO, so this environment cannot inspect the deployed application
-or its provider health without authenticated deployment access. This is an
-access-control/deployment-verification blocker, not evidence that a provider
-is unhealthy or ready. Local read-only integration tests separately verified
-Tatum Testnet gRPC and authenticated Walrus Mainnet readiness. No secret,
-authenticated request, write, transaction, or deployment action was made.
+After deploying the static protobuf-bundling and sequential-read fixes to
+Production deployment `dpl_BKPsF4YQpZWvq9BfjGHtt3wzAMSj`, authenticated
+Vercel CLI checks returned:
+
+- `GET /api/health/maintenance`: HTTP 200, application writes frozen.
+- `GET /api/health/tatum`: HTTP 200, `network: testnet`, and chain identifier
+  `69WiPg3DAQiwdxfncX6wYQ2siKwAe6L9BZthQea3JNMD`.
+- `GET /api/health/walrus`: HTTP 200, `network: mainnet`.
+- `GET /api/health/walrus/account`: HTTP 200, `authenticated: true`.
+
+The Tatum fix replaced an untraceable runtime protobuf-file import with the
+public static `@mysten/sui/grpc` registry so Turbopack includes the generated
+read codecs in the Vercel function. It also serializes the deployment
+attestation's three bounded unary reads after concurrent gateway connections
+proved transiently unreliable. These health checks do not disclose
+credentials, recalled content, receipts, or transaction data; they perform no
+write, paid storage action, signing, or transaction submission.
+
+### Vercel durable-storage boundary
+
+The Production environment intentionally does not configure a filesystem path
+for the private Walrus manifest or receipt journal. Vercel function storage is
+ephemeral, so `/api/agent/insights` must not be presented as available there:
+it fails closed until the manifest and receipts are migrated to a transactional
+shared receipt store (for example the existing PostgreSQL service with a
+reviewed migration and least-privilege access). This does not invalidate the
+historical 10/10 verification above: on 2026-10-31 the private verifier again
+reported 10/10 canonical recall matches and a local read-only journal check
+reported 10 completed, 0 unavailable receipts. No new Walrus write occurred.
+
+### Durable recall implementation — pending controlled migration
+
+Migration `db/migrations/0009_durable_walrus_evidence.sql` adds a read-only
+PostgreSQL manifest/receipt cache with unique record and blob identifiers.
+The accompanying private import validates exactly ten canonical manifest
+entries, completed receipts, timestamps, record IDs, digests, and unique blob
+IDs in one transaction; a conflicting existing value fails the transaction
+instead of being overwritten. The application validates the persisted manifest
+digest and receipt linkage again before every recall. This is implementation
+evidence only: no production migration or import has been performed during
+this work, no private operator journal is in this repository, and the current
+production insight route remains intentionally unavailable until the controlled
+operation is approved and completed.

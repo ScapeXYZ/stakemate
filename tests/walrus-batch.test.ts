@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { approvedBatch, assertSafeManifestPath, inspectWalrusBatchReceipts, prepareWalrusBatch, recallPublishedWalrusBatch, verifyFrozenWalrusBatch } from "../src/lib/server/walrus-batch";
+import { approvedBatch, assertSafeManifestPath, inspectWalrusBatchReceipts, prepareWalrusBatch, recallPublishedWalrusBatch, validateWalrusBatchManifest, verifyFrozenWalrusBatch } from "../src/lib/server/walrus-batch";
 import { MemoryReceiptStore, WalrusMemoryService } from "../src/lib/server/walrus-memory";
 
 const records = Array.from({ length: 12 }, (_, index) => ({ id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`, occurredAt: `2030-01-${String((index % 9) + 1).padStart(2, "0")}T00:00:00.000Z`, challengeId: `challenge-${index}`, actorId: "operator", type: "challenge.created" as const, fixture: `Fixture ${index}`, market: "home_win", deadline: "2030-02-01T00:00:00.000Z", provenance: { source: "canonical_postgres_invitation", sourceRef: `invitation:${index}`, verifiedAt: "2030-01-01T00:00:00.000Z", commitmentHash: `0x${String(index).padStart(64, "a")}` } }));
@@ -12,6 +12,12 @@ test("deterministically freezes exactly ten unique schema-valid records from twe
 test("a changed candidate set rejects frozen manifest publication", () => {
   const manifest = prepareWalrusBatch(records);
   assert.throws(() => verifyFrozenWalrusBatch(manifest, records.map((record, index) => index === 0 ? { ...record, fixture: "Changed" } : record)), /WALRUS_BATCH_CONTENT_CHANGED/);
+});
+test("persisted manifests fail closed on malformed or duplicate canonical identifiers", () => {
+  const manifest = prepareWalrusBatch(records);
+  assert.equal(validateWalrusBatchManifest(manifest).batchDigest, manifest.batchDigest);
+  assert.throws(() => validateWalrusBatchManifest({ ...manifest, entries: [{ ...manifest.entries[0], digest: manifest.entries[1].digest }, ...manifest.entries.slice(1)] }), /WALRUS_BATCH_MANIFEST_INVALID/);
+  assert.throws(() => validateWalrusBatchManifest({ ...manifest, batchDigest: "f".repeat(64) }), /WALRUS_BATCH_MANIFEST_INVALID/);
 });
 test("manifest files must stay outside the application repository", () => {
   assert.throws(() => assertSafeManifestPath("relative-manifest.json"), /ABSOLUTE_REQUIRED/);
@@ -28,6 +34,12 @@ test("approved batch distinguishes ten completed receipts from unavailable or mi
   const inspected = await inspectWalrusBatchReceipts(manifest, store); assert.equal(inspected.completed.length, 10); assert.equal(inspected.unavailable.length, 0);
   await store.put({ recordId: "wrong", digest: manifest.entries[0].digest, preparedAt: "2030-01-01T00:00:00.000Z", status: "completed", blobId: "wrong" });
   assert.equal((await inspectWalrusBatchReceipts(manifest, store)).completed.length, 9);
+});
+test("duplicate blob IDs cannot qualify two receipts", async () => {
+  const manifest = prepareWalrusBatch(records); const store = new MemoryReceiptStore();
+  for (const item of manifest.entries) await store.put({ recordId: item.recordId, digest: item.digest, preparedAt: "2030-01-01T00:00:00.000Z", completedAt: "2030-01-01T00:01:00.000Z", status: "completed", blobId: "shared-blob" });
+  const inspected = await inspectWalrusBatchReceipts(manifest, store);
+  assert.equal(inspected.completed.length, 0); assert.equal(inspected.unavailable.length, 10);
 });
 test("published-batch recall does not substitute local records when provider returns none", async () => {
   const manifest = prepareWalrusBatch(records); const store = new MemoryReceiptStore();

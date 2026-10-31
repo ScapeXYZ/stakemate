@@ -81,13 +81,13 @@ export class CanonicalInvitationPersistenceAdapter {
   async expire(invitationId: string) { assertApplicationWritesAllowed("canonical_invitation_expire"); this.gate(); const [row] = await this.sql`update stakemate_invitations set status = 'expired' where id = ${invitationId} and status = 'pending' and expires_at <= clock_timestamp() returning *`; return row ? record(row) : null; }
   /** Party-scoped, read-only audit record. It never lazily changes expiry. */
   async invitationForWallet(invitationId: string, authenticatedWallet: string) {
-    this.gate(); const actor = address(authenticatedWallet);
+    const actor = address(authenticatedWallet);
     const [row] = await this.sql`select * from stakemate_invitations where id = ${invitationId} and (creator_wallet_address = ${actor} or recipient_wallet_address = ${actor})`;
     return row ? record(row) : null;
   }
   /** Authenticated, wallet-snapshot-scoped read. It never mutates or lazily expires rows. */
   async inbox(authenticatedWallet: string) {
-    this.gate(); const actor = address(authenticatedWallet);
+    const actor = address(authenticatedWallet);
     const [received, sent, clock] = await Promise.all([
       this.sql`select * from stakemate_invitations where recipient_wallet_address = ${actor} order by created_at desc`,
       this.sql`select * from stakemate_invitations where creator_wallet_address = ${actor} order by created_at desc`,
