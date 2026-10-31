@@ -2,6 +2,12 @@
 
 `/api/mcp` is a separate official SDK Streamable HTTP transport, but is **disabled by default** and returns `404`. It is not a fallback for local stdio and does not read local pairing codes, context files, browser cookies, HMAC keys, or wallet material.
 
+## Anonymous public connector
+
+The narrow anonymous endpoint is enabled only by the exact server-side setting `STAKEMATE_REMOTE_MCP_PUBLIC_READ_ONLY_ENABLED=true`. It is stateless Streamable HTTP at the canonical `https://stakemate.isholadigital.tech/api/mcp` URL and exposes exactly `stakemate_resolve_username` and `stakemate_get_verified_fixtures`. It neither enables `STAKEMATE_REMOTE_MCP_ENABLED` nor exposes any wallet-, invitation-, credibility-, session-, or OAuth-backed tool.
+
+In Claude's custom-connector dialog select **No sign-in** and **Streamable HTTP**, then enter that canonical URL. Do not configure OAuth metadata, a client ID, a client secret, a database URL, a wallet credential, or any private MCP flag for this anonymous connector. The endpoint relies only on the application's existing read-only profile and fixture services; it requires no MCP database migration and no new public-connector secret.
+
 ## Recommended provider: WorkOS Connect (pending approval)
 
 Use WorkOS Connect as a managed OAuth bridge for StakeMate's existing wallet-authenticated user model, subject to a sandbox compatibility review. WorkOS documents MCP OAuth 2.1 support, PKCE, DCR, provider metadata, JWT/JWKS validation, and a bring-your-own-users bridge. StakeMate must retain wallet/profile consent binding and verify every provider token against current local consent; the provider does not become a wallet authority. See [managed provider selection](MANAGED_OAUTH_PROVIDER_SELECTION.md).

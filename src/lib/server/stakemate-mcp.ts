@@ -34,28 +34,7 @@ function publicFixture(fixture: FootballFixture) {
 export function createStakeMateMcpServer(deps: McpDependencies) {
   const server = new McpServer({ name: "stakemate", version: "0.1.0" }, { instructions: "StakeMate tools are read-only or preview-only. Never claim an invitation was sent, never sign, fund, settle, or write Walrus Memory." });
 
-  server.registerTool("stakemate_resolve_username", {
-    title: "Resolve a StakeMate username",
-    description: "Read-only public profile lookup. It never returns sessions, credentials, or private profile fields.",
-    inputSchema: z.object({ username }),
-  }, async ({ username: handle }) => {
-    try {
-      const profile = await deps.store().profileForUsername(handle.replace(/^@/, ""));
-      return profile ? text({ username: profile.username }) : error("USERNAME_NOT_FOUND", "No registered StakeMate username matches this handle.");
-    } catch { return error("PROFILE_LOOKUP_UNAVAILABLE", "Public username lookup is unavailable."); }
-  });
-
-  server.registerTool("stakemate_get_verified_fixtures", {
-    title: "Get verified upcoming fixtures",
-    description: "Reads current football-data.org fixtures. SCHEDULED fixtures are display-only; only TIMED future fixtures are eligible for a preview.",
-    inputSchema: z.object({ competition: competition.optional(), horizonDays: z.number().int().min(1).max(7).default(7) }),
-  }, async ({ competition: requested, horizonDays }) => {
-    try {
-      const codes = requested ? [requested] : footballCompetitions;
-      const results = await Promise.all(codes.map(async (code) => deps.football().upcoming(code, horizonDays)));
-      return text({ provider: "football-data.org/v4", fixtures: results.flatMap((result) => result.fixtures.map(publicFixture)) });
-    } catch { return error("FIXTURE_LOOKUP_UNAVAILABLE", "Verified fixture data is unavailable; do not infer a fixture."); }
-  });
+  registerStakeMatePublicTools(server, deps);
 
   server.registerTool("stakemate_prepare_duel", {
     title: "Prepare a safe football duel preview",
@@ -120,6 +99,40 @@ export function createStakeMateMcpServer(deps: McpDependencies) {
     } catch { return error("INVITATIONS_UNAVAILABLE", "Invitation audit data is unavailable."); }
   });
   return server;
+}
+
+/** The only tools safe to expose before remote OAuth identity is fully reviewed. */
+export function createStakeMatePublicMcpServer(deps: Pick<McpDependencies, "store" | "football">) {
+  const server = new McpServer({ name: "stakemate", version: "0.1.0" }, { instructions: "StakeMate public tools are read-only. They never authenticate a wallet, create invitations, sign, fund, settle, or write data." });
+  registerStakeMatePublicTools(server, deps);
+  return server;
+}
+
+function registerStakeMatePublicTools(server: McpServer, deps: Pick<McpDependencies, "store" | "football">) {
+
+  server.registerTool("stakemate_resolve_username", {
+    title: "Resolve a StakeMate username",
+    description: "Read-only public profile lookup. It never returns sessions, credentials, or private profile fields.",
+    inputSchema: z.object({ username }),
+  }, async ({ username: handle }) => {
+    try {
+      const profile = await deps.store().profileForUsername(handle.replace(/^@/, ""));
+      return profile ? text({ username: profile.username }) : error("USERNAME_NOT_FOUND", "No registered StakeMate username matches this handle.");
+    } catch { return error("PROFILE_LOOKUP_UNAVAILABLE", "Public username lookup is unavailable."); }
+  });
+
+  server.registerTool("stakemate_get_verified_fixtures", {
+    title: "Get verified upcoming fixtures",
+    description: "Reads current football-data.org fixtures. SCHEDULED fixtures are display-only; only TIMED future fixtures are eligible for a preview.",
+    inputSchema: z.object({ competition: competition.optional(), horizonDays: z.number().int().min(1).max(7).default(7) }),
+  }, async ({ competition: requested, horizonDays }) => {
+    try {
+      const codes = requested ? [requested] : footballCompetitions;
+      const results = await Promise.all(codes.map(async (code) => deps.football().upcoming(code, horizonDays)));
+      return text({ provider: "football-data.org/v4", fixtures: results.flatMap((result) => result.fixtures.map(publicFixture)) });
+    } catch { return error("FIXTURE_LOOKUP_UNAVAILABLE", "Verified fixture data is unavailable; do not infer a fixture."); }
+  });
+
 }
 
 export function configuredMcpDependencies(): McpDependencies {
