@@ -23,6 +23,17 @@ test("evidence store never falls back to the broad application database URL", ()
   }
 });
 
+test("evidence store rejects a reader URL that reuses the broad application credential", () => {
+  const previousEvidence = process.env.STAKEMATE_WALRUS_EVIDENCE_DATABASE_URL; const previousApplication = process.env.DATABASE_URL;
+  try {
+    process.env.DATABASE_URL = "postgres://shared.example/stakemate"; process.env.STAKEMATE_WALRUS_EVIDENCE_DATABASE_URL = process.env.DATABASE_URL;
+    assert.throws(() => getPostgresWalrusEvidenceStore(), /WALRUS_EVIDENCE_DATABASE_MUST_BE_DEDICATED/);
+  } finally {
+    if (previousEvidence === undefined) delete process.env.STAKEMATE_WALRUS_EVIDENCE_DATABASE_URL; else process.env.STAKEMATE_WALRUS_EVIDENCE_DATABASE_URL = previousEvidence;
+    if (previousApplication === undefined) delete process.env.DATABASE_URL; else process.env.DATABASE_URL = previousApplication;
+  }
+});
+
 test("private importer rejects a valid-looking non-approved batch before opening a database connection", async () => {
   const directory = await mkdtemp(join(tmpdir(), "stakemate-evidence-test-"));
   try {
@@ -34,10 +45,12 @@ test("private importer rejects a valid-looking non-approved batch before opening
 });
 
 test("RLS follow-up grants reader select only and importer select/insert only", async () => {
-  const [migration, roles] = await Promise.all([readFile("db/migrations/0010_walrus_evidence_reader_rls.sql", "utf8"), readFile("db/roles/walrus-evidence-least-privilege.sql", "utf8")]);
+  const [migration, guard, roles] = await Promise.all([readFile("db/migrations/0010_walrus_evidence_reader_rls.sql", "utf8"), readFile("db/migrations/0011_walrus_evidence_approved_batch_guard.sql", "utf8"), readFile("db/roles/walrus-evidence-least-privilege.sql", "utf8")]);
   for (const policy of ["reader_manifest_select", "reader_receipt_select", "importer_manifest_select", "importer_manifest_insert", "importer_receipt_select", "importer_receipt_insert"]) assert.match(migration, new RegExp(`stakemate_walrus_evidence_${policy}`));
   assert.match(migration, /current_user = 'stakemate_walrus_evidence_reader'/); assert.match(migration, /current_user = 'stakemate_walrus_evidence_importer'/);
   assert.match(roles, /GRANT SELECT ON stakemate_walrus_manifests, stakemate_walrus_receipts TO stakemate_walrus_evidence_reader/);
   assert.match(roles, /GRANT SELECT, INSERT ON stakemate_walrus_manifests, stakemate_walrus_receipts TO stakemate_walrus_evidence_importer/);
   assert.doesNotMatch(roles, /UPDATE|DELETE/);
+  assert.match(guard, new RegExp(expectedDigest));
+  assert.match(guard, /AS RESTRICTIVE FOR INSERT/);
 });

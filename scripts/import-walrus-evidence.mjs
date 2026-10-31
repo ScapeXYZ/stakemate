@@ -12,6 +12,7 @@ const databaseUrl = process.env.STAKEMATE_WALRUS_EVIDENCE_IMPORT_DATABASE_URL;
 const execute = process.argv.includes("--execute");
 if (!evidenceDir) throw new Error("WALRUS_EVIDENCE_DIR_REQUIRED");
 if (!databaseUrl) throw new Error("WALRUS_EVIDENCE_IMPORT_DATABASE_URL_REQUIRED");
+if (databaseUrl === process.env.DATABASE_URL) throw new Error("WALRUS_EVIDENCE_IMPORT_DATABASE_MUST_BE_DEDICATED");
 const manifest = JSON.parse(await readFile(resolve(evidenceDir, "mainnet-batch.json"), "utf8"));
 const journal = JSON.parse(await readFile(resolve(evidenceDir, "receipts.json"), "utf8"));
 const canonical = (value) => value === null || ["boolean", "number", "string"].includes(typeof value) ? JSON.stringify(value) : Array.isArray(value) ? `[${value.map(canonical).join(",")}]` : `{${Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(",")}}`;

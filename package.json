@@ -17,6 +17,7 @@
     "walrus:evidence:preflight": "node scripts/audit-walrus-evidence-prereqs.mjs",
     "walrus:evidence:migrate": "node scripts/migrate-walrus-evidence.mjs",
     "walrus:evidence:rls-migrate": "node scripts/migrate-walrus-evidence-rls.mjs",
+    "walrus:evidence:approved-batch-guard-migrate": "node scripts/migrate-walrus-evidence-approved-batch-guard.mjs",
     "walrus:evidence:import": "node scripts/import-walrus-evidence.mjs"
   },
   "dependencies": {

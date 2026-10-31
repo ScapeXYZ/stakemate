@@ -3,6 +3,8 @@ import { validateWalrusBatchManifest, type WalrusBatchManifest } from "./walrus-
 import type { MemoryReceipt, ReceiptStore } from "./walrus-memory";
 import { postgresSslForDatabaseUrl } from "./postgres-connection-security";
 
+export const APPROVED_WALRUS_EVIDENCE_BATCH_DIGEST = "590fb9522e99b59f986fb2f26a39e894bb3870bfe51f4ba0054fc4393da9c02f";
+
 function iso(value: unknown, name: string) {
   const parsed = new Date(value as Date);
   if (!Number.isFinite(parsed.getTime())) throw new Error(`WALRUS_EVIDENCE_${name.toUpperCase()}_INVALID`);
@@ -28,6 +30,7 @@ export class PostgresWalrusEvidenceStore implements ReceiptStore {
     if (!row) return null;
     const manifest = validateWalrusBatchManifest(row.manifest);
     if (String(row.batch_digest).trim() !== manifest.batchDigest || Number(row.version) !== manifest.version || Number(row.record_count) !== manifest.recordCount) throw new Error("WALRUS_EVIDENCE_MANIFEST_ROW_MISMATCH");
+    if (manifest.batchDigest !== APPROVED_WALRUS_EVIDENCE_BATCH_DIGEST) throw new Error("WALRUS_EVIDENCE_UNEXPECTED_BATCH_DIGEST");
     return manifest;
   }
   async get(digest: string) {
@@ -45,5 +48,6 @@ export function getPostgresWalrusEvidenceStore() {
   // and invitation administration.
   const databaseUrl = process.env.STAKEMATE_WALRUS_EVIDENCE_DATABASE_URL;
   if (!databaseUrl?.trim()) throw new Error("WALRUS_EVIDENCE_DATABASE_NOT_CONFIGURED");
+  if (databaseUrl === process.env.DATABASE_URL) throw new Error("WALRUS_EVIDENCE_DATABASE_MUST_BE_DEDICATED");
   return new PostgresWalrusEvidenceStore(databaseUrl);
 }
