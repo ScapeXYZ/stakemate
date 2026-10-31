@@ -107,3 +107,14 @@ Verification script: scripts/verify-walrus-evidence.ts
 These results establish successful publication, retrieval, and canonical
 recall verification at the time tested. They do not establish indefinite
 storage retention or authorize additional writes.
+
+## Read-only deployment check — 2026-10-31
+
+A bounded unauthenticated check of the current Vercel production deployment
+returned `302` for the home page, health routes, and `/api/mcp`. The redirect
+is to Vercel SSO, so this environment cannot inspect the deployed application
+or its provider health without authenticated deployment access. This is an
+access-control/deployment-verification blocker, not evidence that a provider
+is unhealthy or ready. Local read-only integration tests separately verified
+Tatum Testnet gRPC and authenticated Walrus Mainnet readiness. No secret,
+authenticated request, write, transaction, or deployment action was made.

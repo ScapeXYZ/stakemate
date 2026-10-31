@@ -30,7 +30,9 @@ export async function authenticatedMcpContextFromEnvironment(now = new Date()): 
   try {
     const metadata = await lstat(contextPath);
     if (!metadata.isFile() || metadata.isSymbolicLink() || (metadata.mode & 0o077) !== 0) return null;
-    const parsed = contextSchema.parse(JSON.parse(await readFile(contextPath, "utf8")));
+    // This path is supplied only by the local broker at runtime. It must not be
+    // traced into a deployment bundle (or turn its context file into an asset).
+    const parsed = contextSchema.parse(JSON.parse(await readFile(/* turbopackIgnore: true */ contextPath, "utf8")));
     const context: McpAuthContext = { authorizationId: parsed.authorizationId, walletAddress: normalizeSuiAddress(parsed.walletAddress).toLowerCase(), scopes: parsed.scopes, issuedAt: parsed.issuedAt, expiresAt: parsed.expiresAt };
     const issuedAtMs = Date.parse(context.issuedAt);
     const expiresAtMs = Date.parse(context.expiresAt);

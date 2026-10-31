@@ -10,6 +10,8 @@ It is not a betting, custody, or payment application. No UI, API, or MCP tool ca
 - Slush/Sui Testnet wallet connection, readable personal-message authentication, permanent wallet-bound usernames, and wallet-switch isolation.
 - An `localhost:3001`-only, disposable PostgreSQL pilot for canonical off-chain invitation creation, receipt, acceptance, rejection, cancellation, expiry, and read-only evidence. Acceptance is never funding.
 - A frozen Mainnet Walrus batch with ten canonical manifest entries and ten completed receipts. Recall accepts a record only when its manifest entry, canonical digest, and completed receipt agree.
+- Read-only Tatum Sui Testnet gRPC verification of the pinned escrow package and publication transaction; authenticated Walrus Mainnet readiness is also verified locally with writes disabled. Deployment availability remains separately gated by Vercel SSO.
+- Wallet-scoped, read-only agent insights. Recall continues while invitation writes are frozen, but it uses memory for personalization only when it can prove an immutable invitation belongs to the authenticated wallet.
 - A local Claude Desktop-compatible MCP stdio server with public fixture/handle reads and short-lived, wallet-bound read/preview scopes. See [Claude Desktop MCP setup](docs/CLAUDE_DESKTOP_MCP.md).
 
 ## Deliberate limitations
@@ -18,6 +20,7 @@ It is not a betting, custody, or payment application. No UI, API, or MCP tool ca
 - Historical Walrus records are not shown as belonging to the current wallet unless they exactly match that wallet's current canonical invitation commitments. The existing historical batch must not be used to claim current wallet ownership or verified football outcomes.
 - Remote MCP (`/api/mcp`) is disabled. It is not an official ChatGPT plugin and is not ready for public connector installation; a separately reviewed OAuth resource-server/consent deployment is required.
 - Funding, signing, broadcast, escrow settlement, and invitation mutations outside the isolated pilot are disabled.
+- Production provider health must be verified after deployment secret configuration; a `503` health response is a configuration failure, not a successful fallback.
 
 ## Local setup
 

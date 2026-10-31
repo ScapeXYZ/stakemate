@@ -21,3 +21,4 @@ node_modules/
 contracts/**/build/
 contracts/**/.coverage_map.mvcov
 contracts/**/coverage/
+.vercel
