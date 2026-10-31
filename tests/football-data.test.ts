@@ -21,6 +21,25 @@ test("scheduled fixtures are display-only and live or past fixtures are not retu
   assert.deepEqual(result.fixtures.map((fixture) => [fixture.fixtureId, fixture.eligibility]), [["42", "display_only"]]);
 });
 
+test("football adapter enforces exact UTC horizon timestamps for one and seven days", async () => {
+  const at = Date.parse("2030-01-01T23:30:00.000Z");
+  const match = (id: number, utcDate: string, status = "TIMED") => ({ id, utcDate, status, competition: { code: "PL", name: "Premier League" }, homeTeam: { id: id * 10, name: `Home ${id}` }, awayTeam: { id: id * 10 + 1, name: `Away ${id}` } });
+  const body = { matches: [
+    match(1, "2030-01-01T23:29:59.999Z"), // past
+    match(2, "2030-01-01T23:30:00.000Z"), // inclusive start
+    match(3, "2030-01-02T23:29:59.999Z"), // one-day final millisecond
+    match(4, "2030-01-02T23:30:00.000Z"), // one-day exclusive end
+    match(5, "2030-01-08T23:29:59.999Z"), // seven-day final millisecond
+    match(6, "2030-01-08T23:30:00.000Z"), // seven-day exclusive end
+    match(7, "2030-01-03T12:00:00.000Z", "POSTPONED"),
+    match(8, "2030-01-03T12:00:00.000Z", "CANCELLED"),
+  ] };
+  const oneDay = new FootballDataClient("token", async () => response(body), () => at);
+  const sevenDays = new FootballDataClient("token", async () => response(body), () => at);
+  assert.deepEqual((await oneDay.upcoming("PL", 1)).fixtures.map((fixture) => fixture.fixtureId), ["2", "3"]);
+  assert.deepEqual((await sevenDays.upcoming("PL", 7)).fixtures.map((fixture) => fixture.fixtureId), ["2", "3", "4", "5"]);
+});
+
 test("football adapter fails closed for missing token, malformed response, access denial, rate limit, and timeout", async () => {
   await assert.rejects(() => new FootballDataClient(undefined, async () => response({})).upcoming("PL"), (error: unknown) => error instanceof ProviderError && error.code === "NOT_CONFIGURED");
   await assert.rejects(() => new FootballDataClient("token", async () => response({ bad: true }), () => current).upcoming("PL"), (error: unknown) => error instanceof ProviderError && error.code === "INVALID_RESPONSE");

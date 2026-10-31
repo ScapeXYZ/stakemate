@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MemoryInvitationStore } from "../src/lib/server/invitations";
+import { MemoryInvitationStore, type InvitationStore } from "../src/lib/server/invitations";
 import { createPublicReadOnlyMcpHandler, PublicMcpRateLimiter, remoteMcpPublicReadOnlyEnabled } from "../src/lib/server/remote-mcp";
 import type { FootballFixture } from "../src/lib/server/football-data";
 import { ProviderError } from "../src/lib/server/errors";
@@ -52,6 +52,32 @@ test("public Streamable HTTP MCP negotiates protocol and exposes exactly two pub
   const resolved = await handler.fetch(request({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "stakemate_resolve_username", arguments: { username: "@alice" } } }));
   const resolvedBody = await resolved.json() as { result?: { content?: Array<{ text?: string }> } };
   assert.equal(JSON.parse(resolvedBody.result?.content?.[0]?.text ?? "{}").username, "alice");
+});
+
+test("public username lookup returns only a public handle and fails closed", async () => {
+  const handler = await publicHandler({ limiter: new PublicMcpRateLimiter() });
+  const valid = await handler.fetch(request({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "stakemate_resolve_username", arguments: { username: "@ALICE" } } }));
+  const validBody = await valid.json() as { result?: { content?: Array<{ text?: string }> } };
+  assert.deepEqual(JSON.parse(validBody.result?.content?.[0]?.text ?? "{}"), { username: "alice" }, "wallet addresses and all non-public profile data stay private");
+
+  const unknown = await handler.fetch(request({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "stakemate_resolve_username", arguments: { username: "@nobody" } } }));
+  const unknownBody = await unknown.json() as { result?: { content?: Array<{ text?: string }> } };
+  assert.deepEqual(JSON.parse(unknownBody.result?.content?.[0]?.text ?? "{}"), { code: "USERNAME_NOT_FOUND", message: "No registered StakeMate username matches this handle." });
+
+  const invalid = await handler.fetch(request({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "stakemate_resolve_username", arguments: { username: "@bad-handle" } } }));
+  const invalidBody = await invalid.json() as { result?: { isError?: boolean; content?: Array<{ text?: string }> } };
+  assert.equal(invalidBody.result?.isError, true, "invalid handles are rejected by the public schema before lookup");
+
+  let databaseCalls = 0;
+  const unavailable = createPublicReadOnlyMcpHandler({
+    store: () => ({ profileForUsername: async () => { databaseCalls += 1; throw new Error("database connection unavailable"); } }) as unknown as InvitationStore,
+    football: () => ({ upcoming: async () => ({ provider: "football-data.org/v4" as const, competition: "PL" as const, retrievedAtUtc: fixture.retrievedAtUtc, attribution: "test", fixtures: [fixture] }), timedFixture: async () => fixture }),
+  }, { limiter: new PublicMcpRateLimiter() });
+  await unavailable.fetch(request({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "stakemate_resolve_username", arguments: { username: "@bad-handle" } } }));
+  assert.equal(databaseCalls, 0, "invalid handles never reach storage");
+  const failed = await unavailable.fetch(request({ jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "stakemate_resolve_username", arguments: { username: "alice" } } }));
+  const failedBody = await failed.json() as { result?: { content?: Array<{ text?: string }> } };
+  assert.deepEqual(JSON.parse(failedBody.result?.content?.[0]?.text ?? "{}"), { code: "PROFILE_LOOKUP_UNAVAILABLE", message: "Public username lookup is unavailable." });
 });
 
 test("public MCP rejects private tools and strips caller credentials before protocol handling", async () => {

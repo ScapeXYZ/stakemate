@@ -42,11 +42,20 @@ type Clock = () => number;
 function assertCompetition(value: string): asserts value is FootballCompetition { if (!footballCompetitions.includes(value as FootballCompetition)) throw new ProviderError("Unsupported football competition.", "INVALID_RESPONSE"); }
 function utcDate(value: number) { return new Date(value).toISOString().slice(0, 10); }
 function toUtcIso(value: string) { const parsed = Date.parse(value); if (!Number.isFinite(parsed)) throw new ProviderError("Football provider returned an invalid kickoff time.", "INVALID_RESPONSE"); return new Date(parsed).toISOString(); }
+/** The public horizon is [request time, request time + N UTC days): inclusive
+ * at the request instant and exclusive at the exact end instant. */
+function withinUpcomingWindow(response: FootballFixturesResponse, startUtcMs: number, horizonDays: number): FootballFixturesResponse {
+  const endUtcMs = startUtcMs + horizonDays * 24 * 60 * 60_000;
+  return { ...response, fixtures: response.fixtures.filter((fixture) => {
+    const kickoffUtcMs = Date.parse(fixture.kickoffUtc);
+    return Number.isFinite(kickoffUtcMs) && kickoffUtcMs >= startUtcMs && kickoffUtcMs < endUtcMs;
+  }) };
+}
 function retryAfterFromResponse(response: Response, now: number) { const value = response.headers.get("retry-after")?.trim(); if (!value) return minimumRequestIntervalMs; if (/^\d+$/u.test(value)) return Math.min(Number(value) * 1_000, 60_000); const at = Date.parse(value); return Number.isFinite(at) && at > now ? Math.min(at - now, 60_000) : minimumRequestIntervalMs; }
 function fixtureFromMatch(match: z.infer<typeof matchSchema>, competition: FootballCompetition, retrievedAtUtc: string, now: number): FootballFixture | null {
   if (match.competition.code !== competition || match.homeTeam.id === match.awayTeam.id || match.homeTeam.name === match.awayTeam.name) throw new ProviderError("Football provider returned mismatched fixture data.", "INVALID_RESPONSE");
   const kickoffUtc = toUtcIso(match.utcDate); const kickoff = Date.parse(kickoffUtc);
-  if (kickoff <= now) return null;
+  if (kickoff < now) return null;
   // TIMED has an exact kickoff; SCHEDULED may only have a provisional date and
   // therefore is intentionally never eligible for invitation creation.
   if (match.status !== "TIMED" && match.status !== "SCHEDULED") return null;
@@ -65,10 +74,10 @@ export class FootballDataClient {
     if (!this.token?.trim()) throw new ProviderError("Football fixture provider is not configured.", "NOT_CONFIGURED");
     if (!Number.isInteger(horizonDays) || horizonDays < 1 || horizonDays > 7) throw new ProviderError("Fixture horizon must be between one and seven days.", "INVALID_RESPONSE");
     const now = this.now(); const from = utcDate(now); const to = utcDate(now + (horizonDays + 1) * 24 * 60 * 60_000); const key = `${competition}:${from}:${to}`;
-    const cached = this.cache.get(key); if (cached && cached.expiresAt > now) return cached.value;
+    const cached = this.cache.get(key); if (cached && cached.expiresAt > now) return withinUpcomingWindow(cached.value, now, horizonDays);
     const inFlight = this.inFlight.get(`upcoming:${key}`) as Promise<FootballFixturesResponse> | undefined; if (inFlight) return inFlight;
     const request = this.fetchUpcoming(competition, horizonDays, key, now); this.inFlight.set(`upcoming:${key}`, request);
-    try { return await request; } finally { this.inFlight.delete(`upcoming:${key}`); }
+    try { return withinUpcomingWindow(await request, now, horizonDays); } finally { this.inFlight.delete(`upcoming:${key}`); }
   }
   private async fetchUpcoming(competition: FootballCompetition, horizonDays: number, key: string, now: number): Promise<FootballFixturesResponse> {
     this.assertPaced(now, "Football provider request is rate limited locally; use cached data or retry shortly.");
@@ -85,6 +94,9 @@ export class FootballDataClient {
     let payload: unknown;
     try { payload = await response.json(); } catch { throw new ProviderError("Football provider returned invalid JSON.", "INVALID_RESPONSE"); }
     const parsed = matchesResponseSchema.safeParse(payload); if (!parsed.success) throw new ProviderError("Football provider returned an invalid fixture response.", "INVALID_RESPONSE");
+    // The provider accepts whole UTC dates, while the public API promises an
+    // exact duration from the request instant. Keep only verified future
+    // fixtures here; upcoming() applies its precise half-open timestamp range.
     const retrievedAtUtc = new Date(now).toISOString(); const fixtures = parsed.data.matches.map((match) => fixtureFromMatch(match, competition, retrievedAtUtc, now)).filter((fixture): fixture is FootballFixture => fixture !== null).sort((a, b) => Date.parse(a.kickoffUtc) - Date.parse(b.kickoffUtc));
     const value: FootballFixturesResponse = { provider: FOOTBALL_DATA_PROVIDER, competition, retrievedAtUtc, attribution: "Fixture data provided by football-data.org", fixtures };
     this.cache.set(key, { expiresAt: now + cacheTtlMs, value }); return value;
