@@ -25,7 +25,10 @@ const fixtureSchema = z.object({
   participants: z.array(participantSchema),
   scores: z.array(scoreSchema),
 });
-const fixtureResponseSchema = z.object({ data: fixtureSchema });
+// `/fixtures/date/:date` returns a collection, even when the fixture match is
+// unique. Keep that shape explicit so a provider response cannot be mistaken
+// for a single, unverified fixture.
+const fixtureResponseSchema = z.object({ data: z.array(fixtureSchema) });
 const dateResponseSchema = z.object({ data: z.array(z.unknown()) });
 
 const normalized = (value: string) => value.normalize("NFKD").replace(/[^a-z0-9]/giu, "").toLowerCase();
@@ -87,7 +90,7 @@ export class SportmonksSecondaryClient {
     const payload = fixtureResponseSchema.safeParse(response.payload);
     if (!payload.success) throw new ProviderError("Sportmonks secondary football provider returned an invalid fixture response.", "INVALID_RESPONSE");
     const kickoff = Date.parse(commitment.kickoffUtc);
-    const candidates = [payload.data.data].filter((fixture) => {
+    const candidates = payload.data.data.filter((fixture) => {
       const home = fixture.participants.find((item) => item.meta.location === "home"); const away = fixture.participants.find((item) => item.meta.location === "away");
       return Boolean(home && away && normalized(home.name) === normalized(teams.home) && normalized(away.name) === normalized(teams.away) && Math.abs(fixture.starting_at_timestamp * 1_000 - kickoff) <= 6 * 60 * 60_000);
     });
