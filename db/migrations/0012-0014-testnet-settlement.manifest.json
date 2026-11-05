@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Forward-only Sui Testnet settlement runtime schema; no signer or payout capability.",
+  "requiredAppliedMigrations": ["0002", "0003", "0004"],
+  "migrations": [
+    {
+      "id": "0012",
+      "file": "db/migrations/0012_testnet_settlement_discovery.sql",
+      "sha256": "0ab4533a76787e1e683a83c22da0318feca0ca756377c7328944b63caa6ce753",
+      "tables": [
+        "stakemate_testnet_scanner_checkpoint",
+        "stakemate_testnet_observed_events",
+        "stakemate_testnet_challenge_attestations"
+      ]
+    },
+    {
+      "id": "0013",
+      "file": "db/migrations/0013_testnet_duel_registration.sql",
+      "sha256": "19f0150c3efa434d1933e2730053792c62e8c0b56a46b5944514ab5e295ba1ba",
+      "tables": ["stakemate_testnet_duel_registrations"]
+    },
+    {
+      "id": "0014",
+      "file": "db/migrations/0014_testnet_settlement_runtime.sql",
+      "sha256": "546f348cddaa24be3a7b628b91e175291803e393d04016a11dec40fe941ee17e",
+      "tables": [
+        "stakemate_testnet_duel_links",
+        "stakemate_testnet_correction_windows"
+      ]
+    }
+  ]
+}
