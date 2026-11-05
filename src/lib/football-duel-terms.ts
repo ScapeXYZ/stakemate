@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256 } from "@noble/hashes/sha2.js";
 import { normalizeSuiAddress } from "@mysten/sui/utils";
 import type { DuelDraftTerms, OneXTwoSelection } from "@/lib/duel-draft";
 
@@ -36,7 +36,8 @@ export function coreFromDraft(terms: DuelDraftTerms): FootballDuelCoreTerms {
 }
 
 export function canonicalizeFootballDuelCore(input: FootballDuelCoreTerms) { const core = validatedCore(input); return [core.version, `provider=${core.provider}`, `competitionCode=${core.competitionCode}`, `competitionName=${core.competitionName}`, `fixtureId=${core.fixtureId}`, `homeTeamId=${core.homeTeamId}`, `homeTeam=${core.homeTeam}`, `awayTeamId=${core.awayTeamId}`, `awayTeam=${core.awayTeam}`, `kickoffUtc=${core.kickoffUtc}`, `creatorAddress=${core.creatorAddress}`, `opponentAddress=${core.opponentAddress}`, "market=1X2", `creatorSelection=${core.creatorSelection}`, `opponentSelection=${core.opponentSelection}`, `unselectedOutcome=${core.unselectedOutcome}`, `stakeMist=${core.stakeMist}`, `invitationLifetimeMinutes=${core.invitationLifetimeMinutes}`, `voidRule=${core.voidRule}`, ""].join("\n"); }
-export function hashFootballDuelCore(core: FootballDuelCoreTerms) { return createHash("sha256").update(canonicalizeFootballDuelCore(core), "utf8").digest("hex"); }
+function hashUtf8(value: string) { return Array.from(sha256(new TextEncoder().encode(value)), (byte) => byte.toString(16).padStart(2, "0")).join(""); }
+export function hashFootballDuelCore(core: FootballDuelCoreTerms) { return hashUtf8(canonicalizeFootballDuelCore(core)); }
 
 /** The exact UTF-8 preimage whose SHA-256 bytes become Move `vector<u8>` at future creation. */
 export function canonicalizeFootballDuelChallenge(terms: FootballDuelChallengeTerms) {
@@ -44,5 +45,5 @@ export function canonicalizeFootballDuelChallenge(terms: FootballDuelChallengeTe
   if (!(invitationExpiry < funding && funding < outcome)) throw new Error("Invitation, funding, and outcome deadlines must strictly increase.");
   return ["stakemate.challenge-terms.v1", ...core, `invitationExpiresAtUtc=${terms.invitationExpiresAtUtc}`, `fundingDeadlineUtc=${terms.fundingDeadlineUtc}`, `outcomeDeadlineUtc=${terms.outcomeDeadlineUtc}`, `outcomeAuthority=${address(terms.outcomeAuthority)}`, ""].join("\n");
 }
-export function hashFootballDuelChallenge(terms: FootballDuelChallengeTerms) { return `0x${createHash("sha256").update(canonicalizeFootballDuelChallenge(terms), "utf8").digest("hex")}`; }
+export function hashFootballDuelChallenge(terms: FootballDuelChallengeTerms) { return `0x${hashUtf8(canonicalizeFootballDuelChallenge(terms))}`; }
 export function moveHashBytes(hash: string) { if (!/^0x[0-9a-f]{64}$/iu.test(hash)) throw new Error("Move terms hash must be 0x-prefixed 32-byte SHA-256."); return Uint8Array.from(hash.slice(2).match(/.{2}/g)!.map((part) => Number.parseInt(part, 16))); }

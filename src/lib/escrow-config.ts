@@ -19,4 +19,5 @@ export const ESCROW_TARGETS = {
   voidUnreportedOutcome: `${ESCROW_MODULE}::void_unreported_outcome`,
 } as const;
 
-export const ESCROW_SIGNING_DISABLED_REASON = "Transaction signing and execution remain disabled pending a separate approval after Testnet integration review.";
+/** Participant transactions are deliberately Testnet-only. Mainnet is not a configured dApp Kit network. */
+export const ESCROW_SIGNING_DISABLED_REASON = "Sui Mainnet is disabled. Connect a Testnet wallet to sign this transaction.";
