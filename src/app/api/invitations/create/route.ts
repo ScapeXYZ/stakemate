@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { coreFromDraft } from "@/lib/football-duel-terms";
-import { prepareVerifiedDuelDraft, type DraftInput } from "@/app/api/duels/draft/route";
+import { prepareVerifiedDuelDraft, type DraftInput } from "@/lib/server/verified-duel-draft";
 import { getCanonicalInvitationPersistenceAdapter } from "@/lib/server/canonical-invitation-persistence";
 import { assertInvitationLifecycleEnabled } from "@/lib/server/invitation-lifecycle-gate";
 import { outcomeDeadlineForCore } from "@/lib/server/invitation-policy";
