@@ -1,8 +1,10 @@
 # StakeMate
 
-StakeMate is a safety-first football prediction-duel prototype for the Tatum × Walrus Total Recall Hackathon. It uses real, server-side football-data.org fixture discovery, wallet-authenticated immutable duel terms, an isolated off-chain invitation pilot, read-only Sui evidence, and receipt-validated Walrus Memory recall.
+Ever argued with a friend about who will win a football match, where Bitcoin is heading, or what happens next in the stock market? Meet StakeMate. We're not building another sportsbook. We're building a platform where friends can turn disagreements into clear, verifiable challenges—with AI agents helping define the rules and blockchain technology bringing transparency to the outcome.
 
-It is not a betting, custody, or payment application. Testnet participants may explicitly approve their own create/funding transactions in a browser wallet. StakeMate never receives their keys. Automatic settlement broadcasting and Walrus writes remain disabled pending separate operator authorization and signer-custody review.
+StakeMate is a safety-first peer-to-peer challenge and dispute-resolution prototype for the Tatum × Walrus Total Recall Hackathon. Its current product scope is football prediction duels: friends can define transparent terms around an eligible fixture, review the same conditions, and use verifiable evidence where supported. It uses server-side football-data.org fixture discovery, wallet-authenticated immutable terms, an isolated off-chain invitation pilot, read-only Sui evidence, and receipt-validated Walrus Memory recall.
+
+StakeMate is not a traditional sportsbook: it does not set odds, act as a counterparty, or take custody of participant keys. That does not make any stake-bearing challenge legally exempt from gambling, financial-services, consumer-protection, or other regulation. Testnet participants may explicitly approve their own create/funding transactions in a browser wallet; StakeMate never receives their keys. Automatic settlement broadcasting and Walrus writes remain disabled pending separate operator authorization and signer-custody review.
 
 ## What works
 
@@ -16,6 +18,31 @@ It is not a betting, custody, or payment application. Testnet participants may e
 - Wallet-scoped, read-only agent insights, with deterministic comparisons between no verified memory and receipt-verified memory. Recall continues while invitation writes are frozen, but it uses memory for personalization only when it can prove an immutable invitation belongs to the authenticated wallet.
 - A local Claude Desktop-compatible MCP stdio server with public fixture/handle reads and short-lived, wallet-bound read/preview scopes. See [Claude Desktop MCP setup](docs/CLAUDE_DESKTOP_MCP.md).
 
+## Category status
+
+| Category | Status | Accurate scope |
+| --- | --- | --- |
+| Sports | Prototype | The exposed flow supports provider-backed future football 1X2 previews and an isolated-pilot invitation path. |
+| Crypto | Experimental / disabled | Canonical terms and threshold-resolution code exist, but the price provider and end-to-end crypto flow are disabled. |
+| Stocks | Planned | No stock challenge type, market feed, calendar logic, or settlement path exists. |
+| AI-agent integration | Local read/preview only | Compatible agents can help structure a football preview through local MCP; they cannot create, fund, sign, settle, or write Walrus Memory. |
+
+## Roadmap
+
+### Coming December 2026
+
+These are planned capabilities, not launched features:
+
+- **Crypto prediction duels:** Support predictions involving crypto assets with reliable market data, transparent rules, and verifiable outcomes.
+- **Stock market prediction duels:** Introduce stock-market prediction agreements with trusted financial data and clearly defined settlement conditions.
+- **Expanded market coverage:** Extend the platform beyond football while preserving exact-stake escrow and transparent settlement.
+- Automated settlement and payout verification.
+- Live dual-provider football outcome verification.
+- Expanded Walrus Memory capabilities.
+- AI-agent-assisted duel creation and management.
+
+The current product remains focused on football prediction duels. The exposed prototype does not yet support crypto or stock challenges, unattended payouts, live dual-provider agreement, new Walrus writes, or agent-authorized duel mutations.
+
 ## Deliberate limitations
 
 - Walrus writes remain disabled (`WALRUS_MEMORY_WRITES_ENABLED=false`).
@@ -24,6 +51,98 @@ It is not a betting, custody, or payment application. Testnet participants may e
 - Automatic settlement broadcast remains disabled. StakeMate can only queue/simulate a decision after dual-source final-result verification and its correction window; a reviewed managed signer, explicit Testnet broadcast authorization, database migration/activation, and an authenticated scheduler are still required before any outcome can be submitted. Cloudflare holds no signer key and only invokes the bounded authenticated cron endpoint.
 - Production provider health is verified after deployment secret configuration; a future `503` health response is a configuration failure, not a successful fallback.
 - The durable evidence implementation is additive but not yet migrated or deployed: authenticated production insights remain unavailable until migration `0009` and the approved, private 10-record import have completed successfully. It never falls back to `/tmp`.
+- Sports is the only exposed challenge category. Crypto has experimental canonical-term and threshold-resolution code but its price provider and end-to-end flow are disabled. Stocks are planned only: there is no stock price feed, market-calendar logic, or settlement path.
+- The local MCP server can read verified fixtures, resolve handles, prepare an authenticated football preview, and read owner-bound history. It cannot create/accept a challenge, sign, fund, settle, or write Walrus Memory. Remote private MCP/OAuth is disabled.
+
+## Beginner guide: challenge a friend responsibly
+
+1. Open StakeMate and connect a supported **Sui Testnet** wallet where the feature is available. Approve only the readable authentication message; never share a seed phrase or private key.
+2. Choose an eligible future football fixture. The current live prototype supports only football 1X2 terms, not crypto or stock challenges.
+3. Define the friend, opposing Home Win/Away Win selections, stake, and invitation window. Review every term, including the draw/void refund rule and terms hash.
+4. In the isolated local pilot, invite the friend. They can review, accept, reject, or let it expire. Acceptance is acknowledgement only—not a funding approval.
+5. Follow the read-only challenge status. Sui Testnet escrow and funding require each participant’s explicit wallet approval in a separately enabled flow; automated settlement and payouts are disabled.
+
+An AI agent can help clarify a request without gaining authority. Example prompts are illustrative, not claims about an upcoming fixture or current price:
+
+- Sports: “Help me create a challenge with my friend about the winner of an upcoming Arsenal vs Chelsea match.”
+- Crypto roadmap: “Draft a challenge about whether BTC exceeds $100,000 by a specified UTC deadline.”
+- Stocks roadmap: “Draft a challenge about whether Apple shares close above a specified price on a particular trading day.”
+
+For the full technical guide, category status, and FAQ, read the [technical blog](docs/HACKATHON_TECHNICAL_BLOG.md).
+
+## How Automatic Duel Settlement Works
+
+The intended settlement design is deliberately conditional:
+
+1. Both participants review and approve the challenge terms. In the active prototype, invitation acceptance is not funding; separately enabled Testnet escrow/funding requires each participant’s own wallet approval.
+2. The committed outcome is checked against designated authoritative providers. For football, the verification design requires matching fixture identity and regulation-time final-score evidence from the required independent sources.
+3. Conflicting, stale, corrected, unavailable, or unsupported results trigger a hold: StakeMate must not declare a winner from uncertain evidence.
+4. The appropriate verification and correction window must pass before a verified outcome can progress.
+5. Only after all terms, evidence, authority, escrow, and operational safety conditions are satisfied could an authorized settlement release escrow according to the immutable challenge terms.
+
+The full automatic payout process is currently disabled. StakeMate does not run unattended settlement broadcasts, managed-signature submission, or production payouts.
+
+## FAQ
+
+### 1. What is StakeMate?
+
+StakeMate is a safety-first peer-to-peer challenge and dispute-resolution prototype that helps friends define transparent terms and use verifiable evidence where supported.
+
+### 2. How is StakeMate different from a traditional betting platform?
+
+It is designed for friend-versus-friend challenges, not house-set odds or a platform counterparty. That does not remove legal or financial-risk obligations when stakes are used.
+
+### 3. Can I challenge a friend instead of betting against a sportsbook?
+
+That is the intended model. The controlled football invitation flow exists in an isolated pilot; production invitation mutation is disabled.
+
+### 4. Does StakeMate support sports challenges?
+
+Yes, in a limited football 1X2 prototype: supported future fixtures, opposing Home Win/Away Win selections, and a draw/void refund rule. Verification and Testnet flows have separate safety gates.
+
+### 5. Can users challenge each other about cryptocurrency prices?
+
+Not operationally. Canonical crypto terms and deterministic threshold-resolution code exist, but the provider and end-to-end flow are disabled.
+
+### 6. Can users create stock-market challenges?
+
+No. Stocks are a roadmap category; there is no stock challenge type, price feed, calendar logic, or settlement flow.
+
+### 7. Can I use an AI agent such as Codex with StakeMate?
+
+An agent can help structure terms and, in the local MCP setup, prepare a supported football preview. Codex and other agents cannot currently create/accept challenges, sign, fund, settle, or write Walrus records through StakeMate.
+
+### 8. How are challenge outcomes verified?
+
+For sports, independent sources must match the committed fixture and regulation-time final score before a result can progress after its correction window. Missing, stale, conflicting, or unsupported evidence fails closed. Crypto and stocks are not operational verifiers.
+
+### 9. How does Sui escrow work?
+
+The Testnet Move package records fixed participants, stake, deadlines, terms hash, and outcome authority. Participants approve their own transactions. It has a draw/void refund path; it is not a live Mainnet service.
+
+### 10. What happens if a match is cancelled or an outcome cannot be verified?
+
+StakeMate should not declare a winner. Unsupported states, source disagreement, provider failure, or unverifiable evidence remain unavailable/disputed and require the configured void/refund/manual-review path.
+
+### 11. What role does Walrus Memory play?
+
+Walrus provides durable evidence-backed memory only when a recalled record matches the manifest and completed receipt. The historical batch is verified; new writes and production insights remain disabled.
+
+### 12. What role does Tatum play?
+
+Tatum provides read-only Sui Testnet gRPC verification of the configured chain, package, and publish transaction. It is not used to sign or submit transactions.
+
+### 13. Is StakeMate using real money?
+
+No Mainnet money flow is enabled. Escrow work is Sui Testnet-only. A future stake-bearing product may involve financial risk and would require legal, security, and operational approval.
+
+### 14. Is automatic settlement live?
+
+No. Automatic broadcast, unattended payouts, and managed-signer activation are disabled.
+
+### 15. How can developers integrate their own AI agents?
+
+Use the local MCP server for its documented read/preview tools and wallet-bound local authorization. Require structured terms and human approval; do not assume remote MCP/OAuth or mutation/signing tools are available.
 
 ## Local setup
 

@@ -1,6 +1,22 @@
 # StakeMate — Total Recall hackathon requirements
 
-Status: **safe foundation implemented; Mainnet writes and all value-moving actions remain disabled.**
+Status: **historical Mainnet publication evidence verified; new Mainnet writes and all value-moving actions remain disabled.**
+
+## Official submission checklist
+
+The official event page and rules require a public repository, a working 2–3 minute demo, a published blog post, Tatum RPC where relevant, and Walrus Memory integrated with at least 10 Mainnet memories. The submission form also asks for the submitter's email, Discord handle, LinkedIn, event-discovery answer, Web3 experience, Tatum ID, Sui address, Sui account ID, `MEMWAL_AGENT_ID`, project description, and experience reports for Walrus and Tatum AI Builder. Tatum AI Builder is optional and is a separate $500 bonus path.
+
+| Mandatory requirement | StakeMate implementation | Evidence / honest status |
+| --- | --- | --- |
+| Walrus Memory integrated and writing on Mainnet | `@mysten-incubation/memwal`, Mainnet relayer, schema-v2 records, canonical digest and receipt validation | Historic batch verified: 10 completed receipts, 10 distinct blob IDs, 10 aggregator HTTP 200 responses, and 10 canonical recall matches. New writes are disabled. |
+| At least 10 Mainnet memories | Ten historical project/lifecycle memory records | `docs/HACKATHON_EVIDENCE_MANIFEST.md`; private manifest and receipts remain outside Git. |
+| Tatum RPC used where relevant | Read-only Tatum Sui Testnet gRPC adapter for service info, package/object, and transaction reads | Testnet chain ID, pinned package, and successful publish transaction recorded in the evidence manifest. No signing or broadcast. |
+| Published blog post | Technical explanation of the product, learning loop, Tatum, Walrus, and safety boundaries | `docs/HACKATHON_TECHNICAL_BLOG.md` is prepared; publication URL still requires the team’s manual publishing action. |
+| Working demo | Public football prototype and verified Testnet rehearsal evidence | Live app and `docs/TESTNET_REHEARSAL_EVIDENCE.md`; production invitations and automatic settlement are not enabled. A final recording/upload remains manual. |
+| Public repository | GitHub repository configured as `origin` | Push could not be verified in this environment because DNS/network access to GitHub is unavailable. |
+| `MEMWAL_AGENT_ID` | Must be copied from the Walrus Memory dashboard’s Delegate keys public key | Not present in the repository and not inferable from the account ID; manual dashboard lookup required. |
+
+Official deadline: **10 November 2026 at 17:00 UTC**. Source: [official submission page](https://recall-tatum-walrus.vercel.app/) and [event rules](https://thewalrussessions.wal.app/tatum-total-recall).
 
 ## Walrus Memory Mainnet learning loop
 
@@ -9,7 +25,7 @@ Status: **safe foundation implemented; Mainnet writes and all value-moving actio
 | Official Mainnet Memory client | Implemented, disabled | `src/lib/server/walrus-memory.ts` uses `@mysten-incubation/memwal`, the Mainnet relayer, account/delegate credentials held server-side, canonical idempotency digest, receipt journal, reconciliation, and recall. [Official quick start](https://github.com/MystenLabs/walrus-memory/blob/dev/docs/getting-started/quick-start.md) | Credentials are not read or displayed by this work. |
 | Versioned learning schema | Implemented | `src/lib/memory/records.ts` schema v2: predictions, challenge history, match results, credibility scores, and agent-learning records. Existing lifecycle record shapes are retained under the v2 envelope. | Genuine, consented lifecycle data is required. |
 | Provenance and influence | Implemented locally | `recallValidatedRecords()` accepts only exact canonical schema-v2 records and returns Mainnet/query/time/record-ID provenance. `recommendFromCredibilityMemories()` changes a recommendation only from validated recalled credibility records. | A completed Mainnet receipt plus successful recall is required before claiming live influence. |
-| Ten genuine writes | Planned, not complete | `src/lib/memory/proposed-evidence.ts` contains 10 proposed-unwritten, canonical candidates; `docs/HACKATHON_EVIDENCE.md` gives the receipt standard. | Explicit approval per exact digest, current pricing/funding confirmation, and 10 completed receipts with blob IDs. |
+| Ten completed Mainnet records | Historic verification: 10/10 | On 2026-10-31, the private verifier matched 10 canonical schema-v2 records to the frozen manifest; the retained journal has 10 completed receipts with distinct blob IDs and the aggregator retrieval check recorded HTTP 200 for all 10. See [evidence manifest](HACKATHON_EVIDENCE_MANIFEST.md). | This establishes the historical batch only. It does not authorize another write, prove indefinite retention, or make production wallet insights available. |
 
 No candidate is a Mainnet write merely because it passes a dry run. A write requires `WALRUS_MEMORY_WRITES_ENABLED=true`, a durable external receipt path, and `WALRUS_MEMORY_WRITE_APPROVAL_ID`; the service refuses otherwise. The managed relayer and any account setup can have cost or sponsored-capacity implications, so approval must state a record digest and spend/usage cap before enabling the gate.
 
